@@ -11,7 +11,7 @@ MEDIA_TYPE = 'application/vnd.github.v3+json'
 
 class Gist:
 
-    def __init__(self, ** kwargs) -> None:
+    def __init__(self, **kwargs) -> None:
         pass
 
 
@@ -19,11 +19,9 @@ class Gists:
 
     def __init__(self, user: str, token: str) -> None:
         self._headers: Dict[str,str] = None
-        try:
-            self._username: str = user
-            self._token: str = token
-        except KeyError:
-            raise Exception('Username and token required to create a Gists object')
+        self._username: str = user
+        self._token: str = token
+
 
 
     @property
