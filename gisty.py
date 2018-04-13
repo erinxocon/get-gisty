@@ -47,7 +47,7 @@ class Gist:
 
 
     def __repr__(self):
-        return '<Gist Url={0}>'.format(self._url)
+        return '<Gist id={0}>'.format(self._id)
 
 
     @property
