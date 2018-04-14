@@ -5,6 +5,8 @@ import requests
 from datetime import datetime
 from typing import Mapping, Dict, Optional, List
 
+from requests import Response
+
 BASE_URL = 'https://api.github.com'
 
 MEDIA_TYPE = 'application/vnd.github.v3+json'
@@ -25,7 +27,7 @@ class Gist:
             '_url', '_id', '_description', '_public', '_truncated',
             '_comments', '_comments_url', '_html_url', '_git_remote',
             '_created_at', '_updated_at', '_files', '_owner'
-            ]
+        ]
 
         self._url: str = gist_dict.get('url')
         self._id: str = gist_dict.get('id', None)
@@ -117,6 +119,76 @@ class Gist:
         return self._owner
 
 
+class Gisterator:
+
+    def __init__(self, username: str, token: str) -> None:
+        self._headers: Dict[str,str] = None
+        self._token = token
+        self._url = '{0}/users/{1}/gists'.format(BASE_URL, username)
+        self._index = 0
+        self._req: Response = None
+
+
+    @property
+    def token(self) -> str:
+        return self._token
+
+
+    @property
+    def headers(self) -> Dict[str,str]:
+        if self._headers is None:
+            self._headers = {
+                'Accept': MEDIA_TYPE,
+                'Authorization': 'token {0}'.format(self.token)
+            }
+
+        return self._headers
+
+
+    @property
+    def url(self) -> str:
+        return self._url
+
+
+    @url.setter
+    def url(self, value) -> None:
+        self._url = value
+
+
+    @property
+    def req(self) -> Response:
+        self._req = session.get(url=self.url, headers=self.headers)
+        return self._req
+
+
+    @req.setter
+    def req(self, value: Response) -> None:
+        self._req = value
+
+
+    def __iter__(self):
+        return self
+
+
+    def __next__(self) -> Gist:
+        r_json = self.req.json()
+        print(self._index)
+
+        if self._index < len(r_json):
+            self._index += 1
+
+        else:
+            try:
+                self.url = self.req.links['next']['url']
+                self._index = 0
+                self.req = session.get(url=self.url, headers=self.headers)
+
+            except KeyError:
+                raise StopIteration
+
+        g = Gist(r_json[self._index-1])
+        return g
+
 
 class Gists:
 
@@ -137,27 +209,11 @@ class Gists:
         return self._token
 
 
-    @property
-    def headers(self) -> Dict[str,str]:
-        if self._headers is None:
-            self._headers = {
-                'Accept': MEDIA_TYPE,
-                'Authorization': 'token {0}'.format(self.token)
-            }
-
-        return self._headers
-
-
     def get_gists(self, username: str = None) -> List[Gist]:
         username = self.username if username is None else username
-
-        url = '{0}/users/{1}/gists'.format(BASE_URL, username)
-
-        r = session.get(url=url, headers=self.headers)
-
         gist_list: List[Gist] = []
-
-        for g in r.json():
-            gist_list.append(Gist(g))
+        for i in Gisterator(username, self.token):
+            gist_list.append(i)
 
         return gist_list
+
