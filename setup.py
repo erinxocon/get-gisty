@@ -40,6 +40,7 @@ class UploadCommand(Command):
     """Support setup.py upload."""
 
     description = 'Build and publish the package.'
+    user_options= [] # type: ignore
 
     @staticmethod
     def status(s):
