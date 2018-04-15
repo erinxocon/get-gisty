@@ -16,18 +16,21 @@ session = requests.session()
 
 
 class File:
-    def __init__(self, filename: str, file: str = None) -> None:
-        self._filename: str = filename
-        self._contents: str = file
+
+    def __init__(self, token: str = None) -> None:
+        self._filename: str = None
+        self._content: str = None
         self._url: str = None
         self._size: int = None
         self._mime: str = None
         self._language: str = None
         self._truncated: bool = None
+        self._token = token
+        self._headers: Dict[str,str] = None
 
-        if self._contents is None and self._url is None:
-            with io.open(filename, encoding='utf-8') as f:
-                self._contents = f.read()
+
+    def __repr__(self) -> str:
+        return '<File={0}>'.format(self._filename)
 
 
     @property
@@ -35,9 +38,9 @@ class File:
         return self._filename
 
 
-    @property
-    def contents(self):
-        return self._contents
+    @filename.setter
+    def filename(self, value):
+        self._filename = value
 
 
     @property
@@ -45,9 +48,40 @@ class File:
         return self._url
 
 
+    @url.setter
+    def url(self, value):
+        self._url = value
+
+
+    @property
+    def content(self):
+        if self._content is None:
+            if self.url:
+                r = session.get(self.url)
+                self._content = r.text
+            else:
+                try:
+                    with io.open(self.filename, encoding='utf-8') as f:
+                        self._content = f.read()
+                except IOError:
+                    self._content = None
+
+        return self._content
+
+
+    @content.setter
+    def content(self, value):
+        self._content = value
+
+
     @property
     def size(self) -> int:
         return self._size
+
+
+    @size.setter
+    def size(self, value):
+        self._size = value
 
 
     @property
@@ -55,14 +89,28 @@ class File:
         return self._mime
 
 
+    @mime.setter
+    def mime(self, value):
+        self._mime = value
+
+
     @property
     def language(self) -> str:
         return self._language
 
 
+    @language.setter
+    def language(self, value):
+        self._language = value
+
     @property
     def truncated(self) -> bool:
         return self._truncated
+
+
+    @truncated.setter
+    def truncated(self, value):
+        self._truncated = value
 
 
 class Gist:
@@ -71,7 +119,7 @@ class Gist:
             '_url', '_id', '_description', '_public', '_truncated',
             '_comments', '_comments_url', '_html_url', '_git_remote',
             '_created_at', '_updated_at', '_files', '_owner', '_history'
-        ]
+    ]
 
     def __init__(self, gist_dict: Dict = {}) -> None:
 
@@ -99,6 +147,22 @@ class Gist:
             self._history = {i['committed_at']: i['version'] for i in gist_dict['history']}
         except KeyError:
             self._history = None
+
+
+        try:
+            f = gist_dict['files']
+            for k, v in f.items():
+                file = File()
+                file.filename = v['filename']
+                file.language = v['language']
+                file.mime = v['type']
+                file.size = v['size']
+                file.url = v['raw_url']
+                file.content = v.get('content')
+                self._files.append(file)
+
+        except KeyError:
+            self._files = []
 
 
     def __repr__(self):
@@ -173,10 +237,15 @@ class Gist:
 
 
     @property
-    def files(self) -> Dict[str,Dict[str,str]]:
+    def files_upload(self) -> Dict[str,Dict[str,str]]:
         return {
-            i.filename: {'content': i.contents} for i in self._files
+            i.filename: {'content': i.content} for i in self._files
         }
+
+
+    @property
+    def files(self) -> List[File]:
+        return self._files
 
 
     @property
@@ -328,10 +397,10 @@ class Gists:
         for i in Gisterator(url=url, token=self.token):
             yield i
 
-
-    def get_public_gists(self, max_page: int = 5, per_page: int = 25) -> Iterable[Gist]:
+    @staticmethod
+    def get_public_gists(max_page: int = 5, per_page: int = 25) -> Iterable[Gist]:
         url = '{0}/gists/public'.format(BASE_URL)
-        for i in Gisterator(url=url, token=self.token, max_page=max_page, per_page=per_page):
+        for i in Gisterator(url=url, token=None, max_page=max_page, per_page=per_page):
             yield i
 
 
@@ -353,8 +422,9 @@ class Gists:
         obj = {
             'description': gist.description,
             'public': gist.public,
-            'files': gist.files
+            'files': gist.files_upload
         }
         data = json.dumps(obj)
         r = session.post(url=url, data=data, headers=self.headers) # type: ignore
+        print(r.json())
         return Gist(r.json())
