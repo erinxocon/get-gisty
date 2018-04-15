@@ -12,8 +12,8 @@ from shutil import rmtree
 from setuptools import setup, Command
 
 # Package meta-data.
-NAME = 'requests-xml'
-DESCRIPTION = 'XML Parsing for humans.'
+NAME = 'get-gisty'
+DESCRIPTION = 'A an easy to use gist api.'
 URL = 'https://github.com/erinxocon/get-gisty'
 EMAIL = 'erinocon5@gmail.com'
 AUTHOR = "Erin O'Connell"
@@ -83,11 +83,7 @@ setup(
     url=URL,
     python_requires='>=3.6.0',
     # If your package is a single module, use this instead of 'packages':
-    py_modules=['gisty.py'],
-
-    # entry_points={
-    #     'console_scripts': ['mycli=mymodule:cli'],
-    # },
+    py_modules=['gisty'],
     install_requires=REQUIRED,
     include_package_data=True,
     license='MIT',
