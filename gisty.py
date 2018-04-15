@@ -21,10 +21,10 @@ class File:
 
 class Gist:
 
-        __slots__ = [
+    __slots__ = [
             '_url', '_id', '_description', '_public', '_truncated',
             '_comments', '_comments_url', '_html_url', '_git_remote',
-            '_created_at', '_updated_at', '_files', '_owner'
+            '_created_at', '_updated_at', '_files', '_owner', '_history'
         ]
 
     def __init__(self, gist_dict: Dict) -> None:
@@ -42,11 +42,17 @@ class Gist:
         self._created_at: str = gist_dict.get('created_at')
         self._updated_at: str = gist_dict.get('updated_at')
         self._files: List[File] = []
-        self._owner: str
+        self._owner: str = None
+        self._history:Dict[str,str]
         try:
-            self._owner= gist_dict['owner']['login']
+            self._owner = gist_dict['owner']['login']
         except KeyError as e:
             self._owner = None
+
+        try:
+            self._history = {i['committed_at']: i['version'] for i in gist_dict['history']}
+        except KeyError:
+            self._history = None
 
 
     def __repr__(self):
@@ -120,12 +126,20 @@ class Gist:
         return self._owner
 
 
+    @property
+    def history(self) -> Dict[str,str]:
+        return  self._history
+
+
 class Gisterator:
 
-    def __init__(self, username: str, token: str) -> None:
+    def __init__(self, url: str, token: str, max_page: int = 5, per_page: int = 25) -> None:
         self._headers: Dict[str,str] = None
         self._token = token
-        self._url = '{0}/users/{1}/gists'.format(BASE_URL, username)
+        self._max_page = max_page
+        self._per_page = per_page
+        self._current_page: int = 0
+        self._url = url
         self._index = 0
         self._req: Response = None
         self._req_len: int = None
@@ -158,6 +172,21 @@ class Gisterator:
 
 
     @property
+    def max_page(self) -> int:
+        return self._max_page
+
+
+    @property
+    def per_page(self) -> int:
+        return self._per_page
+
+
+    @property
+    def params(self) -> Dict[str,int]:
+        return {'page': self._current_page, 'per_page': self.per_page}
+
+
+    @property
     def req(self) -> Response:
         return self._req
 
@@ -171,31 +200,34 @@ class Gisterator:
         return self
 
 
-    def __next__(self):
+    def __next__(self) -> Gist:
 
         if self._index == 0:
-            self.req = session.get(url=self.url, headers=self.headers)
+            self.req = session.get(url=self.url, headers=self.headers, params=self.params)
             g = Gist(self.req.json()[self._index])
             self._index += 1
             return g
 
         elif self._index < len(self.req.json()):
-            print(self._index)
             g = Gist(self.req.json()[self._index])
             self._index += 1
             return g
 
-        else:
+        elif self._current_page <= self.max_page:
             try:
+                self._current_page += 1
                 self._index = 0
                 self.url = self.req.links['next']['url']
-                self.req = session.get(url=self.url, headers=self.headers)
+                self.req = session.get(url=self.url, headers=self.headers, params=self.params)
                 g = Gist(self.req.json()[self._index])
                 self._index += 1
                 return g
 
             except KeyError:
                 raise StopIteration
+
+        else:
+            raise StopIteration
 
 
 
@@ -205,7 +237,6 @@ class Gists:
         self._headers: Dict[str,str] = None
         self._username: str = user
         self._token: str = token
-
 
 
     @property
@@ -218,8 +249,37 @@ class Gists:
         return self._token
 
 
-    def get_gists(self, username: str = None) -> Iterable[Gist]:
+    @property
+    def headers(self) -> Dict[str,str]:
+        if self._headers is None:
+            self._headers = {
+                'Accept': MEDIA_TYPE,
+                'Authorization': 'token {0}'.format(self.token)
+            }
+
+        return self._headers
+
+
+    def get_gists(self, username: str = None, max_page: int = 5, per_page: int = 25) -> Iterable[Gist]:
         username = self.username if username is None else username
-        for i in Gisterator(username, self.token):
+        url = '{0}/users/{1}/gists'.format(BASE_URL, username)
+        for i in Gisterator(url=url, token=self.token):
             yield i
 
+
+    def get_public_gists(self, max_page: int = 5, per_page: int = 25) -> Iterable[Gist]:
+        url = '{0}/gists/public'.format(BASE_URL)
+        for i in Gisterator(url=url, token=self.token, max_page=max_page, per_page=per_page):
+            yield i
+
+
+    def get_starred_gists(self, max_page: int = 5, per_page: int = 25) -> Iterable[Gist]:
+        url = '{0}/gists/starred'.format(BASE_URL)
+        for i in Gisterator(url=url, token=self.token, max_page=max_page, per_page=per_page):
+            yield i
+
+
+    def get_gist(self, id: str) -> Gist:
+        url = '{0}/gists/{1}'.format(BASE_URL, id)
+        r = session.get(url=url, headers=self.headers)
+        return Gist(r.json())
