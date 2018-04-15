@@ -3,7 +3,7 @@ import json
 import requests
 
 from datetime import datetime
-from typing import Mapping, Dict, Optional, List
+from typing import Dict, List, Iterable
 
 from requests import Response
 
@@ -21,13 +21,14 @@ class File:
 
 class Gist:
 
-    def __init__(self, gist_dict: Dict) -> None:
-
         __slots__ = [
             '_url', '_id', '_description', '_public', '_truncated',
             '_comments', '_comments_url', '_html_url', '_git_remote',
             '_created_at', '_updated_at', '_files', '_owner'
         ]
+
+    def __init__(self, gist_dict: Dict) -> None:
+
 
         self._url: str = gist_dict.get('url')
         self._id: str = gist_dict.get('id', None)
@@ -127,6 +128,7 @@ class Gisterator:
         self._url = '{0}/users/{1}/gists'.format(BASE_URL, username)
         self._index = 0
         self._req: Response = None
+        self._req_len: int = None
 
 
     @property
@@ -157,7 +159,6 @@ class Gisterator:
 
     @property
     def req(self) -> Response:
-        self._req = session.get(url=self.url, headers=self.headers)
         return self._req
 
 
@@ -170,24 +171,32 @@ class Gisterator:
         return self
 
 
-    def __next__(self) -> Gist:
-        r_json = self.req.json()
-        print(self._index)
+    def __next__(self):
 
-        if self._index < len(r_json):
+        if self._index == 0:
+            self.req = session.get(url=self.url, headers=self.headers)
+            g = Gist(self.req.json()[self._index])
             self._index += 1
+            return g
+
+        elif self._index < len(self.req.json()):
+            print(self._index)
+            g = Gist(self.req.json()[self._index])
+            self._index += 1
+            return g
 
         else:
             try:
-                self.url = self.req.links['next']['url']
                 self._index = 0
+                self.url = self.req.links['next']['url']
                 self.req = session.get(url=self.url, headers=self.headers)
+                g = Gist(self.req.json()[self._index])
+                self._index += 1
+                return g
 
             except KeyError:
                 raise StopIteration
 
-        g = Gist(r_json[self._index-1])
-        return g
 
 
 class Gists:
@@ -209,11 +218,8 @@ class Gists:
         return self._token
 
 
-    def get_gists(self, username: str = None) -> List[Gist]:
+    def get_gists(self, username: str = None) -> Iterable[Gist]:
         username = self.username if username is None else username
-        gist_list: List[Gist] = []
         for i in Gisterator(username, self.token):
-            gist_list.append(i)
-
-        return gist_list
+            yield i
 
