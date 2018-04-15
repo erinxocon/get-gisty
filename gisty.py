@@ -1,3 +1,4 @@
+import io
 import json
 
 import requests
@@ -15,8 +16,23 @@ session = requests.session()
 
 
 class File:
-    def __init__(self):
-        pass
+    def __init__(self, filename:str) -> None:
+        self._filename: str = filename
+        self._contents: str = None
+
+        with io.open(filename, encoding='utf-8') as f:
+            self._contents = f.read()
+
+
+    @property
+    def filename(self):
+        return self._filename
+
+
+    @property
+    def contents(self):
+        return self._contents
+
 
 
 class Gist:
@@ -27,11 +43,11 @@ class Gist:
             '_created_at', '_updated_at', '_files', '_owner', '_history'
         ]
 
-    def __init__(self, gist_dict: Dict) -> None:
+    def __init__(self, gist_dict: Dict = {}) -> None:
 
 
         self._url: str = gist_dict.get('url')
-        self._id: str = gist_dict.get('id', None)
+        self._id: str = gist_dict.get('id')
         self._description: str = gist_dict.get('description')
         self._public: bool = gist_dict.get('public', True)
         self._truncated: bool = gist_dict.get('truncated', False)
@@ -74,9 +90,19 @@ class Gist:
         return self._description
 
 
+    @description.setter
+    def description(self, value) -> None:
+        self._description = value
+
+
     @property
     def public(self) -> bool:
         return self._public
+
+
+    @public.setter
+    def public(self, value: bool) -> None:
+        self._public = value
 
 
     @property
@@ -117,8 +143,10 @@ class Gist:
 
 
     @property
-    def files(self):
-        pass
+    def files(self) -> Dict[str,Dict[str,str]]:
+        return {
+            i.filename: {'content': i.contents} for i in self._files
+        }
 
 
     @property
@@ -128,7 +156,11 @@ class Gist:
 
     @property
     def history(self) -> Dict[str,str]:
-        return  self._history
+        return self._history
+
+
+    def add_file(self, file: File):
+        self._files.append(file)
 
 
 class Gisterator:
@@ -279,7 +311,20 @@ class Gists:
             yield i
 
 
-    def get_gist(self, id: str) -> Gist:
-        url = '{0}/gists/{1}'.format(BASE_URL, id)
+    def get_gist(self, id: str, revision: str = None) -> Gist:
+        url = '{0}/gists/{1}/{2}'.format(BASE_URL, id, revision)
         r = session.get(url=url, headers=self.headers)
+        assert r.status_code == 200
+        return Gist(r.json())
+
+
+    def create_gist(self, gist: Gist):
+        url = '{0}/gists'.format(BASE_URL)
+        obj = {
+            'description': gist.description,
+            'public': gist.public,
+            'files': gist.files
+        }
+        data = json.dumps(obj)
+        r = session.post(url=url, data=data, headers=self.headers) # type: ignore
         return Gist(r.json())
