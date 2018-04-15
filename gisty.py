@@ -16,12 +16,18 @@ session = requests.session()
 
 
 class File:
-    def __init__(self, filename:str) -> None:
+    def __init__(self, filename: str, file: str = None) -> None:
         self._filename: str = filename
-        self._contents: str = None
+        self._contents: str = file
+        self._url: str = None
+        self._size: int = None
+        self._mime: str = None
+        self._language: str = None
+        self._truncated: bool = None
 
-        with io.open(filename, encoding='utf-8') as f:
-            self._contents = f.read()
+        if self._contents is None and self._url is None:
+            with io.open(filename, encoding='utf-8') as f:
+                self._contents = f.read()
 
 
     @property
@@ -33,6 +39,30 @@ class File:
     def contents(self):
         return self._contents
 
+
+    @property
+    def url(self) -> str:
+        return self._url
+
+
+    @property
+    def size(self) -> int:
+        return self._size
+
+
+    @property
+    def mime(self) -> str:
+        return self._mime
+
+
+    @property
+    def language(self) -> str:
+        return self._language
+
+
+    @property
+    def truncated(self) -> bool:
+        return self._truncated
 
 
 class Gist:
@@ -318,7 +348,7 @@ class Gists:
         return Gist(r.json())
 
 
-    def create_gist(self, gist: Gist):
+    def create_gist(self, gist: Gist) -> Gist:
         url = '{0}/gists'.format(BASE_URL)
         obj = {
             'description': gist.description,
