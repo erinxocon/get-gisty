@@ -17,15 +17,14 @@ session = requests.session()
 
 class File:
 
-    def __init__(self, token: str = None) -> None:
-        self._filename: str = None
+    def __init__(self, filename: str = None) -> None:
+        self._filename: str = filename
         self._content: str = None
         self._url: str = None
         self._size: int = None
         self._mime: str = None
         self._language: str = None
         self._truncated: bool = None
-        self._token = token
         self._headers: Dict[str,str] = None
 
 
@@ -426,5 +425,4 @@ class Gists:
         }
         data = json.dumps(obj)
         r = session.post(url=url, data=data, headers=self.headers) # type: ignore
-        print(r.json())
         return Gist(r.json())
