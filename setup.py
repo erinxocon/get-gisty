@@ -17,7 +17,7 @@ DESCRIPTION = 'A an easy to use gist api.'
 URL = 'https://github.com/erinxocon/get-gisty'
 EMAIL = 'erinocon5@gmail.com'
 AUTHOR = "Erin O'Connell"
-VERSION = '0.1.1'
+VERSION = '0.1.2'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
